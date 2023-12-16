@@ -1,212 +1,160 @@
-package lwjgl.lwjgl3d.Camera;
-
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.util.glu.GLU.*;
-
+import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.glu.GLU;
-import org.lwjgl.util.vector.Vector3f;
 
 public class Camera {
 
+    public static enum CameraState {
+        ORTHOGRAPICH,
+        CAMERA;
+    }
+
+    public static enum MatrixState {
+        MATRIX,
+        PERSECTIVE;
+    }
+
+    public static enum Options {
+        MATRIX,
+        TRANSLATIONS;
+    }
+
+    private CameraState cameraState;
+    private MatrixState matrixState;
+    private Options options;
     private float x,y,z;
     private float pitch,yaw,roll;
     private float fov;
-    private float left,right,top,bottom;
     private float aspectRatio;
     private float zNear,zFar;
-    private int mode;
-    public final int MODE_2D = 2;
-    public final int MODE_3D = 3;
 
-    public Camera(Vector3f positions, Vector3f rotates, float fov,float aspectRatio,float zNear,float zFar) {
-        this.x=positions.x;
-        this.y=positions.y;
-        this.z=positions.z;
-        this.pitch=rotates.x;
-        this.yaw= rotates.y;
-        this.roll=rotates.z;
-        this.fov=fov;
-        this.aspectRatio=aspectRatio;
-        this.zNear=zNear;
-        this.zFar=zFar;
-        this.mode=MODE_3D;
-    }
-    public Camera(float left,float right,float bottom,float top,float zNear,float zFar) {
-        this.left=left;
-        this.bottom=bottom;
-        this.right=right;
-        this.top=top;
-        this.zNear=zNear;
-        this.zFar=zFar;
-        this.mode=MODE_2D;
-    }
+    private int right,left,top,bottom;
 
-    public void set(String category) {
-        if(category.equalsIgnoreCase("matrix") || category.equalsIgnoreCase("camera")) {
-            if(mode==MODE_2D) {
-                glOrtho(left,right,bottom,top,zNear,zFar);
-            }else if(mode==MODE_3D) {
-                GLU.gluPerspective(fov,aspectRatio,zNear,zFar);
-            }
-        }else if(category.equalsIgnoreCase("translations")) {
-            if(mode==MODE_3D) {
-                glRotatef(pitch,1,0,0);
-                glRotatef(yaw,0,1,0);
-                glRotatef(roll,0,0,1);
-                glTranslatef(-x,-y,-z);
-            }
-        }
 
-    }
-
-    public void eventCamera(float sensitivity) {
-        float maxLookUp = 85;
-        float maxLookDown = -85;
-        float mouseDX=Mouse.getDX();
-        float mouseDY=Mouse.getDY();
-        while(Mouse.isGrabbed()) {
-            if(yaw + mouseDX >= 360) {
-                yaw=yaw + mouseDX - 360;
-            }else if(yaw + mouseDX < 0 ) {
-                yaw=360-yaw + mouseDX;
-            }else {
-                yaw+=mouseDX;
-            }
-            if(pitch - mouseDY >=maxLookDown && pitch - mouseDY <= maxLookUp){
-                pitch+= -mouseDY;
-            }else if(pitch - mouseDY < maxLookDown) {
-                pitch=maxLookDown;
-            }else if (pitch- mouseDY >maxLookUp) {
-                pitch=maxLookUp;
-            }
+    public Camera(CameraState state) {
+        switch (state) {
+            case ORTHOGRAPICH -> {cameraState=state; matrixState = MatrixState.MATRIX; break;}
+            case CAMERA -> {cameraState=state; matrixState = MatrixState.PERSECTIVE; break;}
         }
     }
 
-    public void eventCamera(float sensitivity, float maxLookUp,float maxLookDown) {
-        float mouseDX=Mouse.getDX();
-        float mouseDY=Mouse.getDY();
-        while(Mouse.isGrabbed()) {
-            if(yaw + mouseDX >= 360) {
-                yaw=yaw + mouseDX - 360;
-            }else if(yaw + mouseDX < 0 ) {
-                yaw=360-yaw + mouseDX;
-            }else {
-                yaw+=mouseDX;
-            }
-            if(pitch - mouseDY >=maxLookDown && pitch - mouseDY <= maxLookUp){
-                pitch+= -mouseDY;
-            }else if(pitch - mouseDY < maxLookDown) {
-                pitch=maxLookDown;
-            }else if (pitch- mouseDY >maxLookUp) {
-                pitch=maxLookUp;
-            }
+    public void set(Options option) {
+        switch (option) {
+            case MATRIX:
+                switch (matrixState) {
+                    case MATRIX -> {GL11.glOrtho(left,right,bottom,top,zNear,zFar); break;}
+                    case PERSECTIVE -> {GLU.gluPerspective(fov,aspectRatio,zNear,zFar); break;}
+                }
+                break;
+            case TRANSLATIONS:
+                if(cameraState==CameraState.CAMERA) {
+                    GL11.glRotatef(pitch,1,0,0);
+                    GL11.glRotatef(yaw,0,1,0);
+                    GL11.glRotatef(roll,0,0,1);
+                    GL11.glTranslatef(-x,-y,-z);
+                }
+                break;
         }
     }
 
-    public void eventMove(int delta) {
+    public void cameraEvent(float sensitivity) {
+        final float maxLoopUp=85;
+        final float maxLoopDown=-85;
+        float dx= Mouse.getDX() * sensitivity * 0.16f;
+        float dy= Mouse.getDY() * sensitivity * 0.16f;
+        if(yaw + dx >= 360) {
+            yaw = yaw + dx - 360;
+        }else if (yaw + dx < 0) {
+            yaw = 360 - yaw + dx;
+        }else {
+            yaw+=dx;
+        }
+
+        if(pitch - dy >= maxLoopDown && pitch - dy <= maxLoopUp) {
+            pitch += -dy;
+        }else if(pitch - dy < maxLoopDown) {
+            pitch = maxLoopDown;
+        }else if(pitch - dy > maxLoopUp) {
+            pitch = maxLoopUp;
+        }
+    }
+
+    public void cameraEvent(float sensitivity, float maxLookUp,float maxLookDown) {
+        float dx= Mouse.getDX() * sensitivity * 0.16f;
+        float dy= Mouse.getDY() * sensitivity * 0.16f;
+        if(yaw + dx >= 360) {
+            yaw = yaw + dx - 360;
+        }else if (yaw + dx < 0) {
+            yaw = 360 - yaw + dx;
+        }else {
+            yaw+=dx;
+        }
+
+        if(pitch - dy >= maxLookDown && pitch - dy <= maxLookUp) {
+            pitch += -dy;
+        }else if(pitch - dy < maxLookDown) {
+            pitch = maxLookDown;
+        }else if(pitch - dy > maxLookUp) {
+            pitch = maxLookUp;
+        }
+    }
+
+    public void moveEvent(float delta, float speedx,float speedy,float speedz) {
         float i = 0.003f;
-        float speedx = 1;
-        float speedy = 1;
-        float speedz = 1;
-        boolean forward = Keyboard.isKeyDown(Keyboard.KEY_W);
-        boolean backward = Keyboard.isKeyDown(Keyboard.KEY_S);
-        boolean right = Keyboard.isKeyDown(Keyboard.KEY_D);
-        boolean left = Keyboard.isKeyDown(Keyboard.KEY_A);
+        boolean keyUp = Keyboard.isKeyDown(Keyboard.KEY_W);
+        boolean keyDown = Keyboard.isKeyDown(Keyboard.KEY_S);
+        boolean keyRight = Keyboard.isKeyDown(Keyboard.KEY_D);
+        boolean keyLeft = Keyboard.isKeyDown(Keyboard.KEY_A);
         boolean flyUp = Keyboard.isKeyDown(Keyboard.KEY_SPACE);
-        boolean flyDown = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT);
+        boolean flyDown= Keyboard.isKeyDown(Keyboard.KEY_LSHIFT);
 
-        if(forward && !backward && !right && !left) {
+        if(keyUp && !keyDown && !keyLeft && !keyRight) {
             move(0,0,-speedz * delta * i);
         }
-        if(backward && !forward && !right && !left) {
-            move(0,0,speedz * delta * i);
+        if(keyDown && !keyUp && !keyLeft && !keyRight) {
+            move(0,0, speedz *delta*i);
         }
-        if(right && !forward && !backward && !left) {
-            move(speedx * delta * i,0,0);
+        if(keyLeft && !keyRight && !keyDown && !keyUp) {
+            move(-speedx * delta * i, 0,0);
         }
-        if(left && !forward && !backward && !right) {
-            move(-speedx * delta * i,0,0);
+        if(keyRight && !keyLeft && !keyDown && !keyUp) {
+            move(speedx * delta * i, 0,0);
         }
-        if(right && forward && !backward && !left) {
-            move(speedx * delta * i,0,-speedz * delta * i);
+        if(keyUp && keyLeft && !keyRight && !keyDown) {
+            move(-speedx * delta * i, 0 ,-speedz*delta*i);
         }
-        if(left && forward && !backward && !left) {
-            move(-speedx * delta * i,0,-speedz * delta * i);
+        if(keyUp &&keyRight && !keyDown && !keyLeft) {
+            move(speedx * delta * i, 0, -speedz*delta*i);
         }
-        if(right && backward && !forward && !left) {
-            move(speedx * delta * i,0,speedz * delta * i);
+        if(keyDown && keyLeft &&!keyRight &&!keyUp){
+            move(-speedx * delta * i, 0 ,speedz*delta*i);
         }
-        if(left && backward && !forward && !left) {
-            move(-speedx * delta * i,0,speedz * delta * i);
-        }
-        if(flyUp && !flyDown) {
-            y += speedy * delta * i;
-        }
-        if(flyDown && !flyUp) {
-            y -= speedy * delta * i;
-        }
-
-    }
-
-    public void eventMove(int delta, float speedx,float speedy,float speedz) {
-        float i = 0.003f;
-        boolean forward = Keyboard.isKeyDown(Keyboard.KEY_W);
-        boolean backward = Keyboard.isKeyDown(Keyboard.KEY_S);
-        boolean right = Keyboard.isKeyDown(Keyboard.KEY_D);
-        boolean left = Keyboard.isKeyDown(Keyboard.KEY_A);
-        boolean flyUp = Keyboard.isKeyDown(Keyboard.KEY_SPACE);
-        boolean flyDown = Keyboard.isKeyDown(Keyboard.KEY_LSHIFT);
-
-        if(forward && !backward && !right && !left) {
-            move(0,0,-speedz * delta * i);
-        }
-        if(backward && !forward && !right && !left) {
-            move(0,0,speedz * delta * i);
-        }
-        if(right && !forward && !backward && !left) {
-            move(speedx * delta * i,0,0);
-        }
-        if(left && !forward && !backward && !right) {
-            move(-speedx * delta * i,0,0);
-        }
-        if(right && forward && !backward && !left) {
-            move(speedx * delta * i,0,-speedz * delta * i);
-        }
-        if(left && forward && !backward && !left) {
-            move(-speedx * delta * i,0,-speedz * delta * i);
-        }
-        if(right && backward && !forward && !left) {
-            move(speedx * delta * i,0,speedz * delta * i);
-        }
-        if(left && backward && !forward && !left) {
-            move(-speedx * delta * i,0,speedz * delta * i);
+        if(keyDown && keyRight && !keyLeft && !keyUp) {
+            move(speedx * delta * i, 0 ,speedz*delta*i);
         }
         if(flyUp && !flyDown) {
-            y += speedy * delta * i;
+            y += speedy *delta *i;
         }
         if(flyDown && !flyUp) {
-            y -= speedy * delta * i;
+            y -= speedy * delta *i;
         }
-
     }
 
-    private void move(float dx,float dy,float dz) {
+    public void move(float dx,float dy,float dz) {
         float usX = dx;
-        float adX = usX * (float)Math.cos(Math.toRadians(yaw - 90));
-        float opX = usX * (float)Math.sin(Math.toRadians(yaw - 90));
-        this.x -= opX;
-        this.z += adX;
+        float adX = usX* (float) Math.cos(Math.toRadians(yaw - 90));
+        float opX = usX* (float) Math.sin(Math.toRadians(yaw - 90));
+        this.x-=opX;
+        this.z+=adX;
 
-        y+=dy;
+        this.y+=dy;
 
         float usZ = dz;
-        float adZ= usZ * (float)Math.cos(Math.toRadians(yaw));
-        float opZ  = usZ * (float)Math.sin(Math.toRadians(yaw));
-        this.x -= opZ;
-        this.z += adZ;
-
+        float adZ = usZ* (float) Math.cos(Math.toRadians(yaw));
+        float opZ = usZ* (float) Math.sin(Math.toRadians(yaw));
+        this.x-=opZ;
+        this.z+=adZ;
     }
 
     public float getX() {
@@ -261,7 +209,7 @@ public class Camera {
         return fov;
     }
 
-    public void setFov(float fov) {
+    public void setFieldOfView(float fov) {
         this.fov = fov;
     }
 
@@ -289,43 +237,35 @@ public class Camera {
         this.zFar = zFar;
     }
 
-    public int getMode() {
-        return mode;
-    }
-
-    public void setMode(int mode) {
-        this.mode = mode;
-    }
-
-    public float getLeft() {
-        return left;
-    }
-
-    public void setLeft(float left) {
-        this.left = left;
-    }
-
-    public float getRight() {
+    public int getRight() {
         return right;
     }
 
-    public void setRight(float right) {
+    public void setRight(int right) {
         this.right = right;
     }
 
-    public float getTop() {
+    public int getLeft() {
+        return left;
+    }
+
+    public void setLeft(int left) {
+        this.left = left;
+    }
+
+    public int getTop() {
         return top;
     }
 
-    public void setTop(float top) {
+    public void setTop(int top) {
         this.top = top;
     }
 
-    public float getBottom() {
+    public int getBottom() {
         return bottom;
     }
 
-    public void setBottom(float bottom) {
+    public void setBottom(int bottom) {
         this.bottom = bottom;
     }
 }
